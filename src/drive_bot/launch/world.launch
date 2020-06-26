@@ -13,7 +13,7 @@
   <include file="$(find drive_bot)/launch/robot.launch"/>
 
   <!-- World File -->
-  <arg name="world_file" default="$(find drive_bot)/world/newWorld.world"/>  
+  <arg name="world_file" default="$(find drive_bot)/world/DariusStu.world"/>  
 
   <!-- Launch Gazebo World -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch">

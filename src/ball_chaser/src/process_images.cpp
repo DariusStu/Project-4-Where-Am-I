@@ -28,50 +28,34 @@ void drive_bot(float lin_x, float ang_z)
 
 void process_image_callback(const sensor_msgs::Image img)
 {
-    /*
-     * Setup variables 
-     * imageHeight - image height, number of rows
-     * imageStep - Full row length in bytes
-     */
-    int white_pixel = 255;
-    int imageHeight = img.height;
-    int imageStep = img.step;
+    // Only scan the middle third of the image, ball is ground level with robot
+    int startScan = img.data.size() / 3;
+    int endScan = img.data.size() *2 / 3;
 
     // intialize linear x velocity and angular z velocity variables
     float x = 0.0;
     float z = 0.0;
-
-    /*
-     * Loop through each pixel in image. Use the image height to loop from top to  
-     * bottom, and the image step to loop left to right. If the pixel is bright (white ball) pixels
-     * then increase the total count for white pixels. The variable offsetAccumlated is used to 
-     * compute the offset from the center of the ball to the center of the picture.
-     */
-    float offsetAccumlated = 0.0;
-    int totalCount = 0.0;
-    for (int heightIndex = 0; heightIndex < imageHeight; heightIndex++)
+    int countOfWhitePixels = 0.0;    
+    int xPosSum = 0;
+    for (int pixelIndex = startScan; pixelIndex+2 < endScan; pixelIndex+=3)
     {
-        for (int stepIndex = 0; stepIndex < imageStep; stepIndex++)
+        //Setting up RGB (Red, Green, Blue) channels
+        int channelRed = img.data[pixelIndex];
+        int channelGreen = img.data[pixelIndex+1];
+        int channelBlue = img.data[pixelIndex+2]; 
+        
+        // A white pixel will have all RGB values of 255. 
+        if (channelRed == 255 && channelGreen == 255 && channelBlue == 255)
         {
-            if (img.data[heightIndex * imageStep + stepIndex] == white_pixel)
-            {
-                offsetAccumlated += stepIndex - imageStep / 2.0;
-                totalCount++;
-            }
+            int xPosition = (pixelIndex % (img.width *3)) / 3;
+            xPosSum += xPosition;
+            countOfWhitePixels += 1;
         }
-    
     }
 
-    /*
-     * If no white pixels are detected then the car will stop (no velocity). 
-     * Else the liner x-velocity will be 0.1 m/s and the angular z velocity
-     * will be the average offset normailzed between -1.0 to 1.0. 
-     * We will have a turning coefficient = -4 (this number can be changed and was 
-     * determined through testing).
-     */  
-    int turningCoeff = -4;
+    // If no white pixels are detected then the car will stop (no velocity). 
     
-    if(0 == totalCount)
+    if (0 == countOfWhitePixels)
     {
         // no velocity
         x = 0.0;
@@ -79,8 +63,23 @@ void process_image_callback(const sensor_msgs::Image img)
     }
     else
     {
-        x = 0.1;
-        z = turningCoeff * offsetAccumlated / totalCount / (imageStep / 2.0);
+        int meanX = xPosSum / countOfWhitePixels;
+        if (meanX < img.width /3)
+        {
+            x = 0.5;
+            z = 0.5;
+        }
+        else if (meanX > img.width * 2 / 3)
+        {
+            x = 0.5;
+            z = -0.5;
+        }
+        else
+        {
+            // Drive straight
+            x = 0.5;
+            z = 0.0;
+        }
     }
 
     // Send service request
